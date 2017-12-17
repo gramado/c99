@@ -55,15 +55,7 @@
 #define RAND_MAX  32767 
 
 
-/*
- * libcInitRT:
- *     Inicializa o gerenciamento em user mode de memória virtual
- * para a biblioteca libC99.
- * Obs: *IMPORTANTE: Essa rotina deve ser chamada entes que a biblioteca C 
- * seja usada.
- * Obs: Pode haver uma chamada à ela em crt0.s por exemplo.
- */
-int libcInitRT();
+
 
 
 /*
@@ -94,6 +86,26 @@ int rand(void);
 // então ela deve sair de lá vir pra cá.
 int system(const char *command);
 
+
+
+//rt support
+//pegando informações sobre o heap usado pela biblioteca C99 em user mode.
+unsigned long rtGetHeapStart();
+unsigned long rtGetHeapEnd();
+unsigned long rtGetHeapPointer();
+unsigned long rtGetAvailableHeap();
+//...
+
+
+/*
+ * libcInitRT:
+ *     Inicializa o gerenciamento em user mode de memória virtual
+ * para a biblioteca libC99.
+ * Obs: *IMPORTANTE: Essa rotina deve ser chamada entes que a biblioteca C 
+ * seja usada.
+ * Obs: Pode haver uma chamada à ela em crt0.s por exemplo.
+ */
+int libcInitRT();
 //
 // End.
 //

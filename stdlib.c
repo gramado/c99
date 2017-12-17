@@ -6,6 +6,9 @@
  * Versão: 1.0, 2016 - Created.
  */
 
+    //?? #bugbug
+	//?? Será que a biblioteca deve chamar a API,
+    //?? A biblioteca não deveria ter suas próprias chamdas. 
  
 #include "types.h" 
 #include "stddef.h"
@@ -61,6 +64,24 @@ unsigned long heap_set_new_handler( unsigned long address )
 */
 
 
+
+unsigned long rtGetHeapStart(){
+     return (unsigned long) heap_start;	
+}
+
+unsigned long rtGetHeapEnd(){
+     return (unsigned long) heap_end;	
+}
+
+unsigned long rtGetHeapPointer(){
+     return (unsigned long) g_heap_pointer;	
+}
+
+unsigned long rtGetAvailableHeap(){
+     return (unsigned long) g_available_heap;	
+}
+
+
 /*
  * heapSetLibcHeap:
  *    Configura o heap usado pela libc em user mode.
@@ -114,7 +135,7 @@ void heapSetLibcHeap(unsigned long HeapStart, unsigned long HeapSize)
 	//
 	
 	//Configuração inicial da lista de heaps. Só temos 'um' ainda.
-	heapList[0] = (unsigned long) Heap; //Configura o heap do kernel.
+	heapList[0] = (unsigned long) Heap; //Configura o primeiro heap da stdlib.
 	heapList[1] = (unsigned long) 0;
 	heapList[2] = (unsigned long) 0;
 	//...
@@ -432,6 +453,10 @@ void *AllocateHeapEx(unsigned long size){
  * desejado. 
  * Ponteiros do início da área do cliente.
  * ??
+ *
+ *
+ * @todo: FAZER IGUAL NO KERNEL.
+ *
  */
 unsigned long FreeHeap(unsigned long size){  		
 	return (unsigned long) g_heap_pointer;    //#suspensa! @todo:
@@ -450,7 +475,7 @@ int heapInit()
     //Globals.	
 	//...@todo:
 	
-	unsigned long Max = (unsigned long) ((1024*32) - 1);
+	unsigned long Max = (unsigned long) ((HEAP_BUFFER_SIZE) - 1);
 	//
 	//
 	HEAP_START = (unsigned long) &HeapBuffer[0];
@@ -461,7 +486,7 @@ int heapInit()
     heap_end    = (unsigned long) HEAP_END;  
 	g_heap_pointer     = (unsigned long) heap_start;    //Heap Pointer.	
     g_available_heap   = (unsigned long) (heap_end - heap_start);    	// Available heap.
-	heapCount = 0;      // Contador.
+	heapCount = 0;      // Contador. ?? 1 ??
 	
 	
 	//Test. (Cria e inicializa uma estrutura)
@@ -475,25 +500,25 @@ int heapInit()
 	
 	//Check Heap Pointer.
 	if(g_heap_pointer == 0){
-	    printf("init_heap fail: Heap pointer!\n");
+	    printf("heapInit fail: Heap pointer!\n");
 		goto fail;
 	};
 	
 	//Check Heap Pointer overflow.
 	if(g_heap_pointer > heap_end){
-        printf("init_heap fail: Heap Pointer Overflow!\n");
+        printf("heapInit fail: Heap Pointer Overflow!\n");
 		goto fail;
     };	
 	
     //Heap Start.
 	if(heap_start == 0){
-	    printf("init_heap fail: HeapStart={%x}\n" ,heap_start);
+	    printf("heapInit fail: HeapStart={%x}\n" ,heap_start);
 	    goto fail;
 	};
 	
 	//Heap End.
 	if(heap_end == 0){
-	    printf("init_heap fail: HeapEnd={%x}\n" ,heap_end);
+	    printf("heapInit fail: HeapEnd={%x}\n" ,heap_end);
 	    goto fail;
 	};
 	
@@ -502,7 +527,7 @@ int heapInit()
 	{
 	    //@todo: Tentar crescer o heap.
 		
-		printf("init_heap fail: Available heap!\n");
+		printf("heapInit fail: Available heap!\n");
 		goto fail;
 	};
 	
@@ -519,11 +544,11 @@ int heapInit()
 	
 // Done.
 done:
-    printf("Done.\n");	
+    //printf("Done.\n");	
 	return (int) 0;
 // Fail. Falha ao iniciar o heap do kernel.
 fail:
-    printf("init_heap: Fail!\n");
+    printf("heapInit: Fail!\n");
 	
 	/*
 	printf("* Debug: %x %x %x %x \n", kernel_heap_start, 
@@ -564,7 +589,7 @@ int stdlibInitMM()
 	//Heap.
 	Status = (int) heapInit();
 	if(Status != 0){
-	    printf("init_mm fail: Heap.\n");
+	    printf("stdlibInitMM fail: heapInit.\n");
 	    return (int) 1;
 	};			
 	
@@ -633,7 +658,7 @@ int rand(void){
  *     
  * Explicação:
  *     O objetivo aqui é alocar memória para uma aplicação em user mode.
- * O Heap usado para isso é o Heap do processo ao qual aplucação pertence
+ * O Heap usado para isso é o Heap do processo ao qual aplicação pertence
  * ou o Heap do desktop ao qual a aplicação pertence.
  *
  *     Obs: Podemos chamar o kernel para que ele aloque memória em um Heap 
@@ -643,7 +668,10 @@ int rand(void){
  * do kernel).
  *     Obs: VÁRIOS SERVIÇOS DE ALOCAÇÃO DE MEMÓRIA PODEM CONVIVER TANTO EM
  * USER MODE QUANTO KERNEL MODE.
- *     @todo: O método usado nessa função ainda não foi definido.
+ *
+ * @todo: O método usado nessa função ainda não foi definido.
+ *        ** POR ENQUANTO, PARA TESTES, ESSA FUNÇÃO ALOCA MEMÓRIA NO HEAP DA BIBLIOTECA,
+ *           QUE É BEM PEQUENO, NA FORMA DE BUFFER (ARRAY)
  *
  * Histórico da função:
  *     Versão 1.0, 2015 - Created.
@@ -698,12 +726,74 @@ done:
  * undefined behavior occurs.
  * 
  * If ptr is NULL, no operation is performed.
+ *  @todo: fazer igual no kernel.
+ *
+ * Vamos apenas liberar a estrutura para permitir que outra alocação a use.
+ * o GC pode limpar a estrutura ou destrui-la.
  *
  */
-void free(void *ptr){	
+void free(void *ptr)
+{	
+
+/*
    //@todo: Copiar o do kernel base.
    //essa rotina foi melhorada la no kernel base.
-	return;  
+
+    int Index;
+    struct mmblock_d *Block;	
+
+	//>> If ptr is NULL, no operation is performed.
+	if( (void*) ptr == NULL ){
+		printf("free fail: null pointer.\n");
+		goto fail;
+	}
+	
+	
+	//test:
+	//Calculando o início do header,dado o argumento, que é
+	//o início da área de cliente.
+
+	unsigned long UserAreaStart = (unsigned long) ptr; 
+	
+	Block = (void*) ( UserAreaStart - MMBLOCK_HEADER_SIZE);
+	
+	//O início da estrutura de mmblock_d é um valor inválido.
+	if( (void*) Block == NULL ){
+		printf("free fail: struct pointer.\n");
+		goto fail;
+	}else{
+		
+		
+		if( Block->Used != 1 ){
+			printf("free fail: Used.\n");
+		    goto fail;	
+		};
+			
+		if( Block->Magic != 1234 ){
+			printf("free fail: Magic.\n");
+			goto fail;
+		};
+
+		if( Block->userArea != UserAreaStart ){
+			printf("free fail: userArea address.\n");
+			goto fail;			
+		};	
+		
+		if( Block->Free == 0 ){
+		    Block->Free = 1;   //Liberando o bloco para uso futuro.
+			goto done;	
+		} 
+		
+		//Se estamos aqui é porque algo deu errado.
+        goto fail;
+	};
+//Nothing.
+fail:	
+    refresh_screen();
+	while(1){}
+done:	
+*/	
+   return;  
 };
 
 
@@ -931,7 +1021,7 @@ int system(const char *command)
 	//newfile.
 	if( stdlib_strncmp( (char *) command, "newfile", 7 ) == 0 )
 	{
-	    printf("~newfile - Create empty file.\n");
+	    printf("system: ~newfile - Create empty file.\n");
 		//fs_create_file( "novo    txt", 0);
         goto exit;
     };
@@ -939,7 +1029,7 @@ int system(const char *command)
 	//newdir.
 	if( stdlib_strncmp( (char *) command, "newdir", 7 ) == 0 )
 	{
-	    printf("~newdir - Create empty folder.\n");
+	    printf("system: ~newdir - Create empty folder.\n");
 		//fs_create_dir( "novo    dir", 0);
         goto exit;
     };
@@ -947,7 +1037,7 @@ int system(const char *command)
     //mbr - Testa mbr.
     if( stdlib_strncmp( (char *) command, "mbr", 3 ) == 0 )
 	{
-	    printf("~mbr\n");
+	    printf("system: ~mbr\n");
 		//testa_mbr();
 		goto exit;
     }; 
@@ -955,7 +1045,7 @@ int system(const char *command)
     //root - Testa diretório /root.
     if( stdlib_strncmp( (char *) command, "root", 4 ) == 0 )
 	{
-	    printf("~/root\n");
+	    printf("system: ~/root\n");
 		//testa_root();
 		goto exit;
     }; 
@@ -986,7 +1076,7 @@ int system(const char *command)
 	//save.
 	if( stdlib_strncmp( (char *) command, "save", 4 ) == 0 )
 	{
-	    printf("~save root\n");
+	    printf("system: ~save root\n");
         goto exit;
     };
 	
@@ -995,7 +1085,7 @@ int system(const char *command)
 	//o sistema de arquivos...
 	if( stdlib_strncmp( (char *) command, "install", 7 ) == 0 )
 	{
-	    printf("~install\n");
+	    printf("system: ~install\n");
 		//fs_install();
         goto exit;
     };
@@ -1004,7 +1094,7 @@ int system(const char *command)
 	//boot - Inicia o sistema.
 	if( stdlib_strncmp( (char *) command, "boot", 4 ) == 0 )
 	{
-	    printf("~boot\n");
+	    printf("system: ~boot\n");
 		//boot();
         goto exit;
     };
@@ -1012,7 +1102,7 @@ int system(const char *command)
 	//service
 	if( stdlib_strncmp( (char *) command, "service", 7 ) == 0 )
 	{
-	    printf("~service - rotina de servicos do kernel base\n");
+	    printf("system: ~service - rotina de servicos do kernel base\n");
 		//test_services();
         goto exit;
     };
@@ -1020,7 +1110,7 @@ int system(const char *command)
 	//slots - slots de processos ou threads.
 	if( stdlib_strncmp( (char *) command, "slots", 5 ) == 0 )
 	{
-	    printf("~slots - mostra slots \n");
+	    printf("system: ~slots - mostra slots \n");
 		//mostra_slots();
         goto exit;
     };
@@ -1037,9 +1127,10 @@ int system(const char *command)
 		goto fail;
     };
 		
+	
     //reboot.
 	if( stdlib_strncmp( (char *) command, "reboot", 6 ) == 0 ){
-		apiReboot();
+		apiReboot(); 
 		goto fail;
     };
 
@@ -1049,9 +1140,21 @@ int system(const char *command)
         goto fail;
     };
 	
+	
+	//@todo: exec
+	
+    //:default
+	printf("system: Unknown command!\n");
+	
+	//
+	// o que devemos fazer aqui é pegar o nome digitado e comparar
+	// com o nome dos arquivos do diretório do sistema. se encontrado,
+	// devemos carregar e executar.
+	//
 
 // Fail. Palavra não reservada.	
 fail:
+	printf("system: FAIL!\n");
     return (int) 1;
 
 //@todo: Esse exit como variavel local precisa mudar de nome	

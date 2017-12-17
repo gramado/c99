@@ -16,25 +16,20 @@
  
 //Contagem de heap.
 #define HEAP_COUNT_MAX  256 
- 
-//@todo: 
 
-//#define HEAP_START  &HeapBuffer[0] //0xC0100000
-//#define HEAP_END    &HeapBuffer[(32*1024)-(1)] //0xC02FFFF0    //0xC02FFFF0. 
-//#define HEAP_SIZE   (HEAP_END - HEAP_START) 
-//talvez deva ser assim
 unsigned long HEAP_START; 
 unsigned long HEAP_END;
 unsigned long HEAP_SIZE;
  
 //@todo: padronizar 
-unsigned long heapCount;            //Conta os heaps do sistema.
+unsigned long heapCount;            //Conta os heaps da stdlib.
 
 unsigned long heap_start;    //Start.
 unsigned long heap_end;      //End.
 
 unsigned long g_heap_pointer;       //Pointer.
 unsigned long g_available_heap;     //Available. 
+ 
  
 // 
 // Heap pointer:
@@ -49,7 +44,9 @@ void *Heap;
 // *** HEAP ***
 //
 
-static unsigned char HeapBuffer[32*1024];  //32KB, provisório.
+#define HEAP_BUFFER_SIZE (32*1024)  // 32KB, provisório.
+
+static unsigned char HeapBuffer[HEAP_BUFFER_SIZE]; 
 
 
 

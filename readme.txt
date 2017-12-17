@@ -1,8 +1,11 @@
 
+Sobre o diretório /libC/libC99:
 
-C standard library. C99.
+    Esse diretório tem os arquivos com as rotinas padrão da libC99.
+    A biblioteca aqui se aplica ao ambiente user mode.  
 
-This is a C standard library created for user mode applications. It's used on Gramado operating system.
+    Obs: A biblioteca aqui é compilada, mas só são testadas quando os objetos são incluídos nas aplicações.  
+    Obs: Se a biblioteca compilar corretamente poderá ser testada incluindo nas aplicações.
 
-
-Ps: The files heap.h and mm.h are only for Gramado support.
+    Versão 1.1 da libc C99.
+    Data 2016.

@@ -76,17 +76,38 @@ FILE *fopen( const char *filename, const char *mode )
 	unsigned char *a = (unsigned char *) filename;
 	unsigned long m = (unsigned long) mode;
 	
+	
+	unsigned char buffer[512];
+	
 	//
 	// @todo: Criar filtros para os argumentos. Retornar NULL
 	// se os argumentos forem inválidos.
 	//
+	
+	//@todo: Chamar uma  rotina que carreggue um arquivo...usar a mesma chamada pela api.
+	//stdio_system_call(SYSTEMCALL_READ_FILE, (unsigned long) a, (unsigned long) m, 0);
+	
+	
+	//Criando as estruturas.
+	//struct _iobuf *stream;
+	FILE *stream;
+
+	
+	stream = (FILE *) &buffer[0];
+	  
+	//f._base = ??;  //colocamos aqui o endereço onde o arquivo foi carregado
+	//f._ptr = stdin->_base;
+	stream->_cnt = PROMPT_MAX_DEFAULT;
+	stream->_file = 0;
+	stream->_tmpfname = (char*) filename;	
+	
 	
 	//if( (void*) a == NULL ){
 	//    printf("Error: Invalid name.");
 	//    return NULL;	
 	//};
 	
-	return (void*) stdio_system_call(SYSTEMCALL_READ_FILE, (unsigned long) a, (unsigned long) m, 0);
+	//return (FILE *) stream; 
     return NULL;	
 };
 
@@ -463,9 +484,12 @@ static int print(char **out, int *varg)
 /* 
  * printf:
  *     Imprime uma string formatada.
- *
  *     Assuming sizeof(void *) == sizeof(int).
- *
+ * Obs: Temos uma chamada ao sistema para cada caractere.
+ * 
+ * Obs: Se passássemos apenas o ponteiro da string para o kernel pintá-la,
+ * não estariamos usando o printf da biblioteca em user mode e sim 
+ * a printf do kernel.
  */
 int printf(const char *format, ...)
 {    
@@ -579,50 +603,55 @@ void outbyte(int c)
     //
     // Filtra as dimensões da janela onde esta pintando.
     //
+checkLimits:	
 	
 	//
 	// Colunas.
 	//
 	
-	//limite de largura
+	//Definindo a largura que usaremos.
+	//A largura precisa ser maior que '0' e menor que o limite máximo.
+	//Obs: @todo: Essa rotina de definição pode ir para o momento da inicialização
+	//da biblioteca. Ela contunua aqui porque está funcionando como um filtro.
+	//
     if(g_columns == 0 || g_columns >= SCREEN_MAX_WIDTH){
 		g_columns = COLUMNS;
 	};
 	
-	if( g_cursor_x > g_columns ) 
-    {
+	//O cursor não pode ultrapassar a largura definida.
+	if( g_cursor_x > g_columns ){
         g_cursor_x = 0;
         g_cursor_y++;  
-    }
-	else
-	{
-        g_cursor_x++;  //Incrementa coluna.
+    }else{
+        g_cursor_x++;    //Se não alcançamos o limite, apenas incrementa o x.
     };
     
     //
 	// Linhas.
 	//
 	
-	//limite de altura.
+	//Definindo a altura que usaremos.
+	//A altura precisa ser maior que '0' e menor que o limite máximo.
 	if(g_rows == 0 || g_rows >= SCREEN_MAX_HEIGHT){
 		g_rows = ROWS;
 	};
-		
-	if( g_cursor_y > g_rows ) 
-    { 
+	
+    //O cursor não pode ultrapassar a altura definida.	
+	//se ultrapassar, chamaremos o scroll.
+	//Obs: O scroll ainda não está implementado.
+	//O scroll será feito depois que implementarmos o array de ponteiros
+	//para estruturas de linha.
+	if( g_cursor_y > g_rows ){ 
 	    scroll();
-        //MessageBox("scroll");
-        g_cursor_y = (g_rows-1);
+        g_cursor_x = 0;             //O cursor deve fica na primeira coluna.
+		g_cursor_y = (g_rows-1);    //O cursor deve ficar na última linha.
     };
 
-    //
     // Imprime os caracteres normais.
-    //
-    
+outputByte:    
 	_outbyte(c);
-	
 done:    
-    prev = c;  //Atualisa o prev. 	
+    prev = c;    //Atualisa o prev. 	
 	return;
 };
 
@@ -630,11 +659,15 @@ done:
 /*
  * _outbyte:
  *     Just output a byte on the screen.
+ *
  *     Obs: A função não se preocupa com o cursor.
+ *          Essa rotina está preparada somente par ao modo gráfico.
+ *          Talvez usaremos um selecionador de modo.   
  */
 void _outbyte(int c)
 {
     //Nothing. (Obs: Isso está funcionando).
+//graphicMode:	
 	stdio_system_call( 7, 8*g_cursor_x,  8*g_cursor_y, (unsigned long) c); 
 	return;
 
@@ -771,7 +804,7 @@ done:
 
 /*
  * input:
- *     Coloca os caracteres digitados em uma string.
+ *     Coloca os caracteres digitados em uma string. 'prompt[]'
  */
 unsigned long input(unsigned long ch)
 {
@@ -870,14 +903,14 @@ input_done:
 
 
 /*
- * stdio_system_call: 
- *     Função interna. #encapsulada
- *     As funções padrão de stdio chamarão os recursos do
- * kernel atravéz dessa rotina.
- *     System call usada pelo módulo stdio. 
- *    Interrupção de sistema, número 200, personalizada para stdio.
- *    Chama vários serviços do Kernel com a mesma interrupção.
- *    Essa é a chamada mais simples.
+ * stdio_system_call:
+ *     System call usada pelo módulo stdio.  
+ *     Função interna. 
+ *     As funções padrão de stdio chamarão recursos do kernel atravéz dessa 
+ * rotina.
+ *     Interrupção de sistema, número 200, personalizada para stdio.
+ *     Chama vários serviços do Kernel com a mesma interrupção.
+ *     Essa é a chamada mais simples.
  *
  * Argumentos:
  *    eax = arg1, o Número do serviço.
@@ -900,6 +933,59 @@ done:
 	return (void *) Ret; 
 };
 
+
+/*
+// Return BUFFER_SIZE. 
+int input_file_buffer_size(void);
+int input_file_buffer_size(void)
+{
+  return (BUFFER_SIZE);
+}
+*/
+
+void stdioInitialize()
+{
+	//buffers para as estruturas.
+	unsigned char buffer0[512];
+	unsigned char buffer1[512];
+	unsigned char buffer2[512];
+	
+	
+	stdin  = (FILE *) &buffer0[0];	
+	stdout = (FILE *) &buffer1[0];	
+	stderr = (FILE *) &buffer2[0];	
+	
+	  
+	stdin->_base = &prompt[0];
+	stdin->_ptr = stdin->_base;
+	stdin->_cnt = PROMPT_MAX_DEFAULT;
+	stdin->_file = 0;
+	stdin->_tmpfname = "stdin";
+	//...
+	
+	stdout->_base = &prompt_out[0];
+	stdout->_ptr = stdout->_base;
+	stdout->_cnt = PROMPT_MAX_DEFAULT;
+	stdout->_file = 1;
+	stdout->_tmpfname = "stdout";
+	//...
+	
+	stderr->_base = &prompt_err[0];
+	stderr->_ptr = stderr->_base;
+	stderr->_cnt = PROMPT_MAX_DEFAULT;
+	stderr->_file = 2;
+	stderr->_tmpfname = "stderr";	
+	//...
+	
+	int i;
+	for(i=0; i<PROMPT_MAX_DEFAULT;i++)
+	{
+		prompt[i] = (char) '\0';
+		prompt_out[i] = (char) '\0';
+		prompt_err[i] = (char) '\0';
+	};	
+	
+}
 
 //
 // End.
