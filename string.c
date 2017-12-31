@@ -230,6 +230,187 @@ int strcmp(const char *a, const char *b)
 */
 
 
+
+
+
+/* Copyright (c) 2011, 2012 Jonas 'Sortie' Termansen. */
+size_t strcspn(const char* str, const char* reject)
+{
+	
+	//size_t reject_length = 0;
+	int reject_length = 0;
+	
+	while ( reject[reject_length] )
+		reject_length++;
+	
+	
+	
+	//for ( size_t result = 0; 1; result++ )
+    int result;
+    for( result = 0; result = 1; result++ )
+	{
+		char c = str[result];
+		if ( !c )
+			return (size_t) result;
+		//bool matches = 0;
+		int matches = 0;
+		int i;
+		for( i = 0; i < reject_length; i++ )
+		{
+			if ( str[result] != reject[i] )
+				continue;
+			matches = 1;
+			break;
+		}
+		if ( matches )
+			return (size_t) result;
+	}
+}
+
+
+
+/* Copyright (c) 2011, 2012 Jonas 'Sortie' Termansen. */
+size_t strspn(const char* str, const char* accept)
+{
+	//size_t accept_length = 0;
+	int accept_length = 0; 
+	while ( accept[accept_length] )
+		accept_length++;
+	
+	
+	//for ( size_t result = 0; true; result++ )
+	int result;
+    for( result = 0; result = 1; result++ )
+	{
+		char c = str[result];
+		if ( !c )
+			return (size_t) result;
+		
+		//bool matches = false;
+		int matches = 0;
+		int i;
+		//for ( size_t i = 0; i < accept_length; i++ )
+		for( i=0; i<accept_length; i++ )
+		{
+			if ( str[result] != accept[i] )
+				continue;
+			matches = 1;
+			break;
+		}
+		if ( !matches )
+			return (size_t) result;
+	}
+}
+
+
+
+
+/* Copyright (c) 2011, 2012 Jonas 'Sortie' Termansen. */
+/*
+char* strtok_r(char* str, const char* delim, char** saveptr)
+{
+	if ( !str && !*saveptr )
+		return NULL;
+	if ( !str )
+		str = *saveptr;
+	str += strspn(str, delim); // Skip leading
+	if ( !*str )
+		return *saveptr = NULL;
+	size_t amount = strcspn(str, delim);
+	if ( str[amount] )
+		*saveptr = str + amount + 1;
+	else
+		*saveptr = NULL;
+	str[amount] = '\0';
+	return str;
+}
+*/
+
+
+
+/* Copyright (c) 2011, 2012 Jonas 'Sortie' Termansen. */
+/*
+char* strtok(char* str, const char* delim)
+{
+	static char* lasttokensaveptr = NULL;
+	return strtok_r(str, delim, &lasttokensaveptr);
+}
+*/
+
+
+/*apple*/
+char *
+strtok_r(char *s, const char *delim, char **last)
+{
+    char *spanp;
+    int c, sc;
+    char *tok;
+
+    if (s == NULL && (s = *last) == NULL)
+    {
+	return NULL;
+    }
+
+    /*
+     * Skip (span) leading delimiters (s += strspn(s, delim), sort of).
+     */
+cont:
+    c = *s++;
+    for (spanp = (char *)delim; (sc = *spanp++) != 0; )
+    {
+	if (c == sc)
+	{
+	    goto cont;
+	}
+    }
+
+    if (c == 0)		/* no non-delimiter characters */
+    {
+	*last = NULL;
+	return NULL;
+    }
+    tok = s - 1;
+
+    /*
+     * Scan token (scan for delimiters: s += strcspn(s, delim), sort of).
+     * Note that delim must have one NUL; we stop if we see that, too.
+     */
+    for (;;)
+    {
+	c = *s++;
+	spanp = (char *)delim;
+	do
+	{
+	    if ((sc = *spanp++) == c)
+	    {
+		if (c == 0)
+		{
+		    s = NULL;
+		}
+		else
+		{
+		    char *w = s - 1;
+		    *w = '\0';
+		}
+		*last = s;
+		return tok;
+	    }
+	}
+	while (sc != 0);
+    }
+    /* NOTREACHED */
+}
+
+/*apple*/
+char *
+strtok(char *s, const char *delim)
+{
+    static char *last;
+
+    return strtok_r(s, delim, &last);
+}
+
+
 //
 // End.
 //
