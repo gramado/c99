@@ -534,9 +534,35 @@ static void printchar(char **str, int c)
  *     Put a char in the screen.
  */
 int putchar(int ch)
-{    
-    outbyte(ch);
-    return (int) ch;    
+{
+    //
+	// Opções:
+	// +Chamar a função 'putchar' oferecida pelo kernel 
+	// e utilizar o cursor gerenciado pelo kernel.
+	// +chamar a função 'outbyte' com cursor gerenciado em user mode.
+	//
+	
+	//
+	// *importante:
+	// Queremos que o kernel gerencie as mensagens de digitação,
+	// então devemos usar a opção que permite o kernel usar seu próprio cursor.
+	//
+    
+	//#atenção
+	//Estamos deixando o kernel gerenciar as mensagens de digitação 
+	//usando seu próprio cursor.
+    //put char.
+	stdio_system_call( 65, 
+                       (unsigned long) ch, 
+				       (unsigned long) ch, 
+				       (unsigned long) ch );
+	
+    //#suspensa
+	//Nessa opção o cursor é gerenciado em user mode.
+	//outbyte(ch);
+    
+	
+	return (int) ch;    
 };
 
 
