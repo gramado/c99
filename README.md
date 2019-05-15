@@ -1,5 +1,5 @@
-# c99
-C standard library. C99.
+# libc02
 
-This is a C standard library created for user mode applications.
-It's used on Gramado operating system.
+ C library version 0.2 for GDE project.
+	
+	2019 - Created by Fred Nora.
